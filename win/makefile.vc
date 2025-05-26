@@ -1,0 +1,100 @@
+#------------------------------------------------------------- -*- makefile -*-
+#
+# Sample makefile for building Tcl extensions.
+#
+# Basic build, test and install
+#   nmake /f makefile.vc INSTALLDIR=c:\path\to\tcl
+#   nmake /f makefile.vc INSTALLDIR=c:\path\to\tcl test
+#   nmake /f makefile.vc INSTALLDIR=c:\path\to\tcl install
+#
+# For other build options (debug, static etc.),
+# See TIP 477 (https://core.tcl-lang.org/tips/doc/main/tip/477.md) for
+# detailed documentation.
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+#------------------------------------------------------------------------------
+
+# The name of the package
+PROJECT = xlsreader
+
+XLSLIBDIR = ../libxls
+
+!include "rules-ext.vc"
+
+# Define the object files and resource file that make up the extension.
+# Note the resource file does not makes sense if doing a static library build
+# hence it is under that condition. TMP_DIR is the output directory
+# defined by rules for object files.
+PRJ_OBJS = \
+	$(TMP_DIR)\tclcmd.obj \
+	$(TMP_DIR)\xlsreadercmd.obj \
+	$(TMP_DIR)\xlsreader.obj \
+	$(TMP_DIR)\endian.obj \
+	$(TMP_DIR)\locale.obj \
+	$(TMP_DIR)\ole.obj \
+	$(TMP_DIR)\xls.obj \
+	$(TMP_DIR)\xlstool.obj
+
+# Define any additional compiler flags that might be required for the project
+PRJ_DEFINES = -D_CRT_SECURE_NO_DEPRECATE
+PRJ_INCLUDES = -I$(XLSLIBDIR)/include
+
+!if "$(DEBUGLOG)" != ""
+!if $(DEBUGLOG)
+PRJ_DEFINES = $(PRJ_DEFINES) -DTCLCMD_DEBUG -DXLSREADER_DEBUG -DXLSREADERCMD_DEBUG
+!endif
+!endif
+
+#OLE_DEBUG
+
+# Define the standard targets
+!include "$(_RULESDIR)\targets.vc"
+
+# We must define a pkgindex target that will create a pkgIndex.tcl
+# file in the $(OUT_DIR) directory. We can just redirect to the
+# default-pkgindex target for our sample extension.
+pkgindex:
+	@if exist $(ROOT)\pkgIndex.tcl.in nmakehlp -s << $(ROOT)\pkgIndex.tcl.in > $(OUT_DIR)\pkgIndex.tcl
+@PACKAGE_VERSION@    $(DOTVERSION)
+@PACKAGE_NAME@       $(PRJ_PACKAGE_TCLNAME)
+@PACKAGE_VERSION2@   $(PACKAGE_VERSION2)
+@PACKAGE_NAME2@      $(PACKAGE_NAME2)
+@PACKAGE_TCLNAME@    $(PRJ_PACKAGE_TCLNAME)
+@PKG_LIB_FILE@       $(PRJLIBNAME)
+@PKG_LIB_FILE8@      $(PRJLIBNAME8)
+@PKG_LIB_FILE9@      $(PRJLIBNAME9)
+<<
+
+$(ROOT)\manifest.uuid:
+   copy $(WIN_DIR)\gitmanifest.in $(ROOT)\manifest.uuid
+   git rev-parse HEAD >>$(ROOT)\manifest.uuid
+
+$(TMP_DIR)\xlsreaderUuid.h:	$(ROOT)\manifest.uuid
+	copy $(WIN_DIR)\xlsreaderUuid.h.in+$(ROOT)\manifest.uuid $(TMP_DIR)\xlsreaderUuid.h
+
+# The default install target only installs binaries and scripts so add
+# an additional target for our documentation. Note this *adds* a target
+# since no commands are listed after it. The original targets for
+# install (from targets.vc) will remain.
+install: default-install-docs-html default-install-demos
+
+# Explicit dependency rules
+
+$(GENERICDIR)\xlsreader.cpp : $(GENERICDIR)\xlsreadercmd.hpp $(TMP_DIR)\xlsreaderUuid.h
+
+$(GENERICDIR)\xlsreadercmd.cpp : $(GENERICDIR)\xlsreadercmd.hpp $(GENERICDIR)\tclcmd.hpp
+
+{$(GENERICDIR)}.cpp{$(TMP_DIR)}.obj::
+	$(CCPKGCMD) /EHsc @<<
+$<
+<<
+
+{$(XLSLIBDIR)/src}.c{$(TMP_DIR)}.obj::
+	$(CCPKGCMD) @<<
+$<
+<<
+
+.SUFFIXES:
+.SUFFIXES:.c .cpp .rc

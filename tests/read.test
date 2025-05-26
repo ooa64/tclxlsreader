@@ -1,0 +1,19 @@
+package require xlsreader
+package require tcltest
+namespace import ::tcltest::*
+
+testConstraint tcltestEncodingOk [expr {[testConstraint tcltestEncodingOk] || [configure -singleproc] || [testConstraint macOrUnix]}]
+
+test read-1.0 "read blanks" {} {
+   xlsreader read [file join [testsDirectory] .. libxls/fuzz/corpus/blanks.xls]
+} {{{x y} {{} a} {1.0 {}}} {{x y} {{} {}} {1.0 a}} {{x y} {1.0 a} {{} {}} {2.0 b}}}
+
+test read-1.1 "read ukrainian data" tcltestEncodingOk {
+   xlsreader read [file join [testsDirectory] data/ukrainian.xls]
+} {{Один Два Три Чотири} №ёЁъЪїЇіІєЄґҐ}
+
+test read-1.2 "read ukrainian filename" tcltestEncodingOk {
+   xlsreader read [file join [testsDirectory] data/Книга1.xls]
+} {{Один Два Три Чотири} №ёЁъЪїЇіІєЄґҐ}
+
+cleanupTests
