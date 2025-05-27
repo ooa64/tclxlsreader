@@ -2,7 +2,6 @@
 #define XLSREADERCMD_H
 
 #include <tcl.h>
-#include <xls.h>
 #include "tclcmd.hpp"
 
 class XlsreaderCmd : public TclCmd {

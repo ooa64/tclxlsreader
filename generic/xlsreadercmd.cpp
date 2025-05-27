@@ -28,8 +28,7 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
   Tcl_DStringInit(&e);
   char * filename = Tcl_UtfToExternalDString(NULL,
       Tcl_TranslateFileName(tclInterp, Tcl_GetString(objv[2]), &s), -1, &e);
-  DEBUGLOG(objv[2] << " | " << filename);
-#ifdef DEBUG
+#ifdef XLS_DEBUG
   xls::xls(1);
 #endif
 
@@ -43,38 +42,44 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
     }
     Tcl_Obj * resultObj = Tcl_GetObjResult(tclInterp);
 
-    for (unsigned int sheet = 0; sheet < pWB->sheets.count; sheet++) {
+    for (WORD sheet = 0; sheet < pWB->sheets.count; sheet++) {
 
       Tcl_Obj * sheetObj = Tcl_NewObj();
       xlsWorkSheet * pWS = xls_getWorkSheet(pWB, sheet);
       xls_parseWorkSheet(pWS);
 
-      for (unsigned int row = 0; row <= (unsigned int)pWS->rows.lastrow; row++) {
+      for (WORD row = 0; row <= (WORD)pWS->rows.lastrow; row++) {
 
         Tcl_Obj * rowObj = Tcl_NewObj();
 
-        for (unsigned int col = 0; col <= (unsigned int)pWS->rows.lastcol; col++) {
+        for (WORD col = 0; col <= (WORD)pWS->rows.lastcol; col++) {
 
           xlsCell *cell = xls_cell(pWS, row, col);
           if ((!cell) || (cell->isHidden)) {
             continue;
           }
           if (cell->id == XLS_RECORD_RK || cell->id == XLS_RECORD_MULRK || cell->id == XLS_RECORD_NUMBER) {
-            Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewDoubleObj(cell->d));
-          } else if (cell->id == XLS_RECORD_FORMULA || cell->id == XLS_RECORD_FORMULA_ALT) {
-            // formula
-            if (cell->l == 0) // its a number
-            {
+            // (abs(cell->d - floor(cell->d)) <= DBL_MIN)
+            if (Tcl_WideInt(cell->d) == cell->d)
+              Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewWideIntObj(Tcl_DoubleAsWide(cell->d)));
+            else 
               Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewDoubleObj(cell->d));
+          } else if (cell->id == XLS_RECORD_FORMULA || cell->id == XLS_RECORD_FORMULA_ALT) {
+            if (cell->l == 0) {
+              if (Tcl_WideInt(cell->d) == cell->d)
+                Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewWideIntObj(Tcl_DoubleAsWide(cell->d)));
+              else 
+                Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewDoubleObj(cell->d));
+              // char s[22];
+              // snprintf(s, sizeof(s), "%.15g", cell->d);
+              // Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj(s, -1));
             } else if (cell->str) {
-              if (!strcmp((char *)cell->str, "bool")) // its boolean, and test cell->d
-              {
+              if (!strcmp((char *)cell->str, "bool")) {
                 Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewBooleanObj((int)cell->d));
-              } else if (!strcmp((char *)cell->str, "error")) // formula is in error
-              {
+                // Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj(((int)cell->d ? "true" : "false"), -1));
+              } else if (!strcmp((char *)cell->str, "error")) {
                 Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj("*error*", -1));
-              } else // ... cell->str is valid as the result of a string formula.
-              {
+              } else {
                 Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj((char *)cell->str, -1));
               }
             }
@@ -83,8 +88,12 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
           } else {
             Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj("", -1));
           }
+          if (cell->colspan > 1) {
+            for (WORD i = 2; i <= cell->colspan; i++)
+              Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj("", -1));
+          }
           if (cell->rowspan > 1) {
-            // FIXME: add empty rows?
+            // FIXME ?
           }
 
         }
@@ -106,6 +115,9 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
   }
 
 exit:
+#ifdef XLS_DEBUG
+  xls::xls(0);
+#endif
   Tcl_DStringFree(&e);
   Tcl_DStringFree(&s);
   return result;

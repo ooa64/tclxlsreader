@@ -2,18 +2,82 @@ package require xlsreader
 package require tcltest
 namespace import ::tcltest::*
 
+set fuzz [file join [testsDirectory] .. libxls/fuzz/corpus]
+
 testConstraint tcltestEncodingOk [expr {[testConstraint tcltestEncodingOk] || [configure -singleproc] || [testConstraint macOrUnix]}]
+testConstraint fuzzExists [llength [glob -nocomplain -tails -dir $fuzz *.xls]]
 
-test read-1.0 "read blanks" {} {
-   xlsreader read [file join [testsDirectory] .. libxls/fuzz/corpus/blanks.xls]
-} {{{x y} {{} a} {1.0 {}}} {{x y} {{} {}} {1.0 a}} {{x y} {1.0 a} {{} {}} {2.0 b}}}
+proc readSheet {file {sheetno 0}} {
+   join [lindex [xlsreader read [file join [testsDirectory] data $file]] $sheetno] \n
+}
 
-test read-1.1 "read ukrainian data" tcltestEncodingOk {
-   xlsreader read [file join [testsDirectory] data/ukrainian.xls]
-} {{Один Два Три Чотири} №ёЁъЪїЇіІєЄґҐ}
+test read-1.0 "default libxls test" {} {
+   readSheet [file join [testsDirectory] data test2.xls]
+} {a b c d e f g h I j k
+2 This is a Plugger test document {} {} {} {}
+3 {} {} {} {} {} {} {} {} {} {}
+4 The quick brown fox {} {} {} {} {} {}
+5 {} {} {} {} jumped {} {} {} {} {}
+6 {} {} {} {} {} over {} {} {} {}
+7 {} {} {} {} {} {} the {} {} {}
+8 {} {} {} {} {} {} {} lazy {} {}
+9 {} ┌──┐ {} {} {} {} {} {} dog's {}
+10 {} {} {} {} {} {} {} {} {} back
+11 {cette ligne est écrite en français} {} {} {} {} {} {} {} {} {}
+12 {} {} {} {} {} {} {} {} {} {}
+13 {This is a horizontally merged cell} {} {} {} {} {} {} {} {} {}
+14 The {} {} {} {} {} {} {} {} {}
+15 quick {} {} {} {} {} {} {} {} {}
+16 brown {} {} {} {} {} {} {} {} {}
+17 fox jumped {} {} {} {} {} {} {} {}
+18 {} over {} {} {} {} {} {} {} {}
+19 {} the {} {} {} {} {} {} {} {}
+20 {} lazy dog's {} {} {} {} {} {} {}
+21 {} {} back {} {} {} {} {} {} {}
+22 {} {} {} {} {} {} {} {} {} {}
+23 {"doubly quoted string"} {'singly quoted string'} {} {} {} {} {} {} {} {}
+24 Formula: {The quick brown fox} 2 {} {} {} {} {} {} {}}
 
-test read-1.2 "read ukrainian filename" tcltestEncodingOk {
-   xlsreader read [file join [testsDirectory] data/Книга1.xls]
-} {{Один Два Три Чотири} №ёЁъЪїЇіІєЄґҐ}
+test read-2.1 "read numbers, check precision" {} {
+    # 0.543210987654321		-0.43210987654321
+    # 0.876543210987654321	-0.76543210987654321
+    # 543210987654321		5432109876543.21
+    # -43210987654321		-432109876543.21
+    # 876543210987654321	8765432109876543.21
+    # -76543210987654321	-765432109876543.21
+    readSheet [file join [testsDirectory] data numbers.xls]
+} {0.543210987654321 -0.43210987654321
+0.876543210987654 -0.765432109876543
+543210987654321 5432109876543.21
+-43210987654321 -432109876543.21
+876543210987654016 8765432109876540
+-76543210987654304 -765432109876543}
+
+test read-2.2 "read ukrainian data, check encoding" tcltestEncodingOk {
+   readSheet [file join [testsDirectory] data ukrainian.xls]
+} {Один
+Два
+Три
+Чотири
+№ёЁъЪїЇіІєЄґҐ}
+
+test read-2.3 "read ukrainian filename" tcltestEncodingOk {
+   readSheet Книга1.xls
+} {{}}
+
+test read-3.0 "read blanks" fuzzExists {
+   xlsreader read [file join $fuzz blanks.xls]
+} {{{x y} {{} a} {1 {}}} {{x y} {{} {}} {1 a}} {{x y} {1 a} {{} {}} {2 b}}}
+
+test read-3.1 "read big numbers" fuzzExists {
+   join [lindex [xlsreader read [file join $fuzz big-texty-numbers-xls.xls]] 0] \n
+} {number {number as text} notes
+{blah blah} {blah blah} {this row forces column to be text}
+2147483647 2147483647 {x = 2^31 - 1}
+2147483648 2147483648 {x + 1}
+2147483649 2147483649 {x + 2}
+-2147483648 -2147483648 {-1 * (x + 1)}
+-2147483649 -2147483649 {-1 * (x + 2)}}
+
 
 cleanupTests
