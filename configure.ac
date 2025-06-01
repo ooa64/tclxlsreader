@@ -30,6 +30,7 @@ AC_INIT([xlsreader],[1.0])
 TEA_INIT()
 
 AC_CONFIG_AUX_DIR(tclconfig)
+#AC_CONFIG_HEADERS([config.h])
 
 #--------------------------------------------------------------------
 # Load the tclConfig.sh file
@@ -72,7 +73,7 @@ TEA_SETUP_COMPILER
 #-----------------------------------------------------------------------
 
 TEA_ADD_SOURCES([xlsreader.cpp xlsreadercmd.cpp tclcmd.cpp])
-TEA_ADD_SOURCES([libxml/src/endian.c libxml/src/locale.c libxml/src/ole.c libxml/src/xls.c libxml/src/xlstool.c])
+TEA_ADD_SOURCES([libxls/src/endian.c libxls/src/locale.c libxls/src/ole.c libxls/src/xls.c libxls/src/xlstool.c])
 TEA_ADD_INCLUDES([-I${srcdir}/libxls/include])
 TEA_ADD_HEADERS([])
 TEA_ADD_LIBS([-Wl,--no-undefined -lstdc++])

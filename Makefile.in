@@ -214,7 +214,6 @@ libraries:
 #========================================================================
 
 doc: $(srcdir)/doc/xlsreader.html
-	@mkdoc $(srcdir)/doc/xlsreader.md $(srcdir)/doc/xlsreader.html
 
 install: all install-binaries install-libraries install-doc
 
@@ -302,7 +301,7 @@ $(PKG_STUB_LIB_FILE): $(PKG_STUB_OBJECTS)
 # As necessary, add $(srcdir):$(srcdir)/compat:....
 #========================================================================
 
-VPATH = $(srcdir):$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win:$(srcdir)/macosx:$(srcdir)/shapelib
+VPATH = $(srcdir):$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win:$(srcdir)/macosx:$(srcdir)/libxls/src
 
 .c.@OBJEXT@:
 	$(COMPILE) -c `@CYGPATH@ $<` -o $@
@@ -323,6 +322,9 @@ xlsreaderUuid.h:	$(srcdir)/manifest.uuid
 	echo "#define XLSREADER_VERSION_UUID \\" >$@
 	cat $(srcdir)/manifest.uuid >>$@
 	echo "" >>$@
+
+$(srcdir)/doc/xlsreader.html: $(srcdir)/doc/xlsreader.md
+	@mkdoc $(srcdir)/doc/xlsreader.md $(srcdir)/doc/xlsreader.html
 
 #========================================================================
 # Distribution creation
