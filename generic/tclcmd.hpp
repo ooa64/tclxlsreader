@@ -10,12 +10,6 @@
            Tcl_AppendToObj(a,Tcl_GetStringFromObj(b,NULL),-1)
 #endif
 
-#if TCL_MAJOR_VERSION == 8
-#   define STUB_VERSION "8.5"
-#else
-#   define STUB_VERSION "9.0"
-#endif
-
 // Common TclCmd ancestor to all objects. This defines
 // common destructing and command dispatching methods.
 
