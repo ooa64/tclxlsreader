@@ -1,1 +1,0 @@
-/* #define HAVE_XLOCALE_H 1 */

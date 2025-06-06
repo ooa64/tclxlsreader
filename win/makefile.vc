@@ -39,7 +39,7 @@ PRJ_OBJS = \
 
 # Define any additional compiler flags that might be required for the project
 PRJ_DEFINES = -D_CRT_SECURE_NO_DEPRECATE
-PRJ_INCLUDES = -I$(XLSLIBDIR)/include
+PRJ_INCLUDES = -I$(XLSLIBDIR)/include -I..
 
 !if "$(DEBUGLOG)" != ""
 !if $(DEBUGLOG)
