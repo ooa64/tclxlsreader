@@ -11,7 +11,13 @@ proc readSheet {file {sheetno 0}} {
    join [lindex [xlsreader read [file join [testsDirectory] data $file]] $sheetno] \n
 }
 
-test read-1.0 "default libxls test" {} {
+test read-1.0 "simple test" {} {
+   readSheet [file join [testsDirectory] data simple.xls]
+} {1 11.11 One 20241231 T
+2 22.22 Two 20250101 F
+3 {} {} {} {}}
+
+test read-1.1 "default libxls test" tcltestEncodingOk {
    readSheet [file join [testsDirectory] data test2.xls]
 } {a b c d e f g h I j k
 2 This is a Plugger test document {} {} {} {}
