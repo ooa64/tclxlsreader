@@ -42,17 +42,20 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
     }
     Tcl_Obj * resultObj = Tcl_GetObjResult(tclInterp);
 
-    for (WORD sheet = 0; sheet < pWB->sheets.count; sheet++) {
+    for (unsigned sheet = 0; sheet < pWB->sheets.count; sheet++) {
 
       Tcl_Obj * sheetObj = Tcl_NewObj();
       xlsWorkSheet * pWS = xls_getWorkSheet(pWB, sheet);
-      xls_parseWorkSheet(pWS);
-
-      for (WORD row = 0; row <= (WORD)pWS->rows.lastrow; row++) {
+      error = xls_parseWorkSheet(pWS);
+      if (error) {
+        Tcl_AppendResult(tclInterp, "Error parsing sheet ", pWB->sheets.sheet[sheet].name, ": ", xls_getError(error), NULL);
+        goto exit;
+      }
+      for (unsigned row = 0; row <= pWS->rows.lastrow; row++) {
 
         Tcl_Obj * rowObj = Tcl_NewObj();
 
-        for (WORD col = 0; col <= (WORD)pWS->rows.lastcol; col++) {
+        for (unsigned col = 0; col <= pWS->rows.lastcol; col++) {
 
           xlsCell *cell = xls_cell(pWS, row, col);
           if ((!cell) || (cell->isHidden)) {
@@ -89,7 +92,7 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
             Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj("", -1));
           }
           if (cell->colspan > 1) {
-            for (WORD i = 2; i <= cell->colspan; i++)
+            for (unsigned i = 2; i <= cell->colspan; i++)
               Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj("", -1));
           }
           if (cell->rowspan > 1) {
