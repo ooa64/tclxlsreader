@@ -30,10 +30,16 @@
  */
 #include "config.h"
 #include <stdlib.h>
+#ifdef WIN_NOUTF8LOCALE
+#include <wtypes.h>
+#include <stringapiset.h> 
+#endif
 #include "../include/libxls/locale.h"
 
 xls_locale_t xls_createlocale(void) {
-#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64) || defined(WINDOWS)
+#if defined(WIN_NOUTF8LOCALE)
+    return -1;
+#elif defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64) || defined(WINDOWS)
     return _create_locale(LC_CTYPE, ".65001");
 #else
     return newlocale(LC_CTYPE_MASK, "C.UTF-8", NULL);
@@ -43,6 +49,10 @@ xls_locale_t xls_createlocale(void) {
 void xls_freelocale(xls_locale_t locale) {
     if (!locale)
         return;
+#if defined(WIN_NOUTF8LOCALE)
+    if (locale == -1)
+        return;
+#endif
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64) || defined(WINDOWS)
     _free_locale(locale);
 #else
@@ -51,7 +61,9 @@ void xls_freelocale(xls_locale_t locale) {
 }
 
 size_t xls_wcstombs_l(char *restrict s, const wchar_t *restrict pwcs, size_t n, xls_locale_t loc) {
-#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64) || defined(WINDOWS)
+#if defined(WIN_NOUTF8LOCALE)
+    return WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR)pwcs, -1, s, s == NULL ? 0 : n, NULL, NULL) /*-1*/;
+#elif defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64) || defined(WINDOWS)
     return _wcstombs_l(s, pwcs, n, loc);
 #elif defined(HAVE_WCSTOMBS_L)
     return wcstombs_l(s, pwcs, n, loc);
@@ -62,3 +74,29 @@ size_t xls_wcstombs_l(char *restrict s, const wchar_t *restrict pwcs, size_t n, 
     return result;
 #endif
 }
+
+#ifdef XWIN_NOUTF8LOCALE
+/* https://stackoverflow.com/questions/215963/how-do-you-properly-use-widechartomultibyte/66978733#66978733 */
+
+char* win_unicode_to_utf8(const wchar_t* wstr, int nchars) {
+    int nbytes = 0;
+    if ( ( nbytes = WideCharToMultiByte( CP_UTF8, WC_ERR_INVALID_CHARS, 
+        wstr, nchars, NULL, 0, NULL, NULL ) ) == 0 ) {
+        return NULL;
+    }
+
+    char* str = NULL;
+    if ( !( str = malloc( ( size_t )nbytes + 1 ) ) ) {
+        return NULL;
+    }
+
+    str[ nbytes ] = '\0';
+    if ( WideCharToMultiByte( CP_UTF8, WC_ERR_INVALID_CHARS, 
+        wstr, nchars, str, nbytes, NULL, NULL ) == 0 ) {
+        free( str );
+        return NULL;
+    }
+    return str;
+}
+
+#endif
