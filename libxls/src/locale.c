@@ -74,29 +74,3 @@ size_t xls_wcstombs_l(char *restrict s, const wchar_t *restrict pwcs, size_t n, 
     return result;
 #endif
 }
-
-#ifdef XWIN_NOUTF8LOCALE
-/* https://stackoverflow.com/questions/215963/how-do-you-properly-use-widechartomultibyte/66978733#66978733 */
-
-char* win_unicode_to_utf8(const wchar_t* wstr, int nchars) {
-    int nbytes = 0;
-    if ( ( nbytes = WideCharToMultiByte( CP_UTF8, WC_ERR_INVALID_CHARS, 
-        wstr, nchars, NULL, 0, NULL, NULL ) ) == 0 ) {
-        return NULL;
-    }
-
-    char* str = NULL;
-    if ( !( str = malloc( ( size_t )nbytes + 1 ) ) ) {
-        return NULL;
-    }
-
-    str[ nbytes ] = '\0';
-    if ( WideCharToMultiByte( CP_UTF8, WC_ERR_INVALID_CHARS, 
-        wstr, nchars, str, nbytes, NULL, NULL ) == 0 ) {
-        free( str );
-        return NULL;
-    }
-    return str;
-}
-
-#endif
