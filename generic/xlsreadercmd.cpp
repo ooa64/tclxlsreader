@@ -87,6 +87,15 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
                 Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj((char *)cell->str, -1));
               }
             }
+          } else if (cell->id == XLS_RECORD_BOOLERR) {
+              if (!strcmp((char *)cell->str, "bool")) {
+                Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewBooleanObj((int)cell->d));
+                // Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj(((int)cell->d ? "true" : "false"), -1));
+              } else if (!strcmp((char *)cell->str, "error")) {
+                Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj("*error*", -1));
+              } else {
+                Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj((char *)cell->str, -1));
+              }
           } else if (cell->str) {
             Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj((char *)cell->str, -1));
           } else {
