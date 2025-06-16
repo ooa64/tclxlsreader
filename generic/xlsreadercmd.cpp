@@ -49,6 +49,7 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
       error = xls_parseWorkSheet(pWS);
       if (error) {
         Tcl_AppendResult(tclInterp, "Error parsing sheet ", pWB->sheets.sheet[sheet].name, ": ", xls_getError(error), NULL);
+        xls_close_WS(pWS);
         goto exit;
       }
       for (unsigned row = 0; row <= pWS->rows.lastrow; row++) {
