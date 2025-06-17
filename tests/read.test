@@ -7,18 +7,39 @@ set fuzz [file join [testsDirectory] .. libxls/fuzz/corpus]
 testConstraint tcltestEncodingOk [expr {[testConstraint tcltestEncodingOk] || [configure -singleproc] || [testConstraint macOrUnix]}]
 testConstraint fuzzExists [llength [glob -nocomplain -tails -dir $fuzz *.xls]]
 
-proc readSheet {file {sheetno 0}} {
-   join [lindex [xlsreader read [file join [testsDirectory] data $file]] $sheetno] \n
+proc readSheet {file {sheetno 0} {encoding {}}} {
+   set p {}
+   if {$encoding ne {}} {
+       lappend p -encoding $encoding
+   }
+   join [lindex [xlsreader read [file join [testsDirectory] data $file] {*}$p] $sheetno] \n
 }
 
+foreach {n p r} {
+    0 {} {wrong # args: should be "xlsreader read <filename> ?-encoding <encoding>?"}
+    1 {a b} {invalid subcommand "a": should be read or open}
+    2 {read b c d} {invalid arg "c": should be "-encoding"}
+    3 {read b -encoding} {wrong # args: should be "xlsreader read <filename> ?-encoding <encoding>?"}
+    4 {read b -encoding c d} {wrong # args: should be "xlsreader read <filename> ?-encoding <encoding>?"}
+} {
+    test read-0.1.$n "syntax bad arg $p" -returnCodes 1 -body {
+        xlsreader {*}$p
+    } -result $r
+    unset n p r
+}
+
+test read-0.2 "invalid encoding" -returnCodes 1 -body {
+    xlsreader read a -encoding b
+} -result {unknown encoding "b"}
+
 test read-1.0 "simple test" {} {
-   readSheet [file join [testsDirectory] data simple.xls]
+    readSheet [file join [testsDirectory] data simple.xls]
 } {1 11.11 One 20241231 T
 2 22.22 Two 20250101 F
 3 {} {} {} {}}
 
 test read-1.1 "default libxls test" tcltestEncodingOk {
-   readSheet [file join [testsDirectory] data test2.xls]
+    readSheet [file join [testsDirectory] data test2.xls]
 } {a b c d e f g h I j k
 2 This is a Plugger test document {} {} {} {}
 3 {} {} {} {} {} {} {} {} {} {}
@@ -60,7 +81,7 @@ test read-2.1 "read numbers, check precision" {} {
 -76543210987654304 -765432109876543}
 
 test read-2.2 "read ukrainian data, check encoding" tcltestEncodingOk {
-   readSheet [file join [testsDirectory] data ukrainian.xls]
+    readSheet [file join [testsDirectory] data ukrainian.xls]
 } {Один
 Два
 Три
@@ -68,7 +89,23 @@ test read-2.2 "read ukrainian data, check encoding" tcltestEncodingOk {
 №ёЁъЪїЇіІєЄґҐ}
 
 test read-2.3 "read 8bit ukrainian data" tcltestEncodingOk {
-   readSheet ukrainian1251.xls 
+    readSheet ukrainian1251.xls 
+} {Один
+Два
+Три
+Чотири
+№ёЁъЪїЇіІєЄґҐ}
+
+test read-2.4 "read 8bit ukrainian data using implicit encoding" tcltestEncodingOk {
+    readSheet ukrainian1251.xls 0 cp1251
+} {Один
+Два
+Три
+Чотири
+№ёЁъЪїЇіІєЄґҐ}
+
+test read-2.5 "read 8bit ukrainian data using implicit invalid encoding" tcltestEncodingOk {
+    encoding convertfrom cp1251 [readSheet ukrainian1251.xls 0 ascii]
 } {Один
 Два
 Три
@@ -76,7 +113,7 @@ test read-2.3 "read 8bit ukrainian data" tcltestEncodingOk {
 №ёЁъЪїЇіІєЄґҐ}
 
 test read-2.4 "read ukrainian filename" tcltestEncodingOk {
-   readSheet Книга1.xls
+    readSheet Книга1.xls
 } {{}}
 
 test read-3.0 "read blanks" fuzzExists {
@@ -84,7 +121,7 @@ test read-3.0 "read blanks" fuzzExists {
 } {{{x y} {{} a} {1 {}}} {{x y} {{} {}} {1 a}} {{x y} {1 a} {{} {}} {2 b}}}
 
 test read-3.1 "read big numbers" fuzzExists {
-   join [lindex [xlsreader read [file join $fuzz big-texty-numbers-xls.xls]] 0] \n
+    join [lindex [xlsreader read [file join $fuzz big-texty-numbers-xls.xls]] 0] \n
 } {number {number as text} notes
 {blah blah} {blah blah} {this row forces column to be text}
 2147483647 2147483647 {x = 2^31 - 1}

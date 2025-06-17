@@ -52,9 +52,20 @@ Tcl_Obj * Xls_NewBoolerrObj(xlsCell *cell, Tcl_Encoding encoding) {
 */
 
 int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
-  if (objc != 3) {
-    Tcl_WrongNumArgs(tclInterp, 1, objv, "read <filename>");
+  if (objc != 3 && objc != 5) {
+    Tcl_WrongNumArgs(tclInterp, 1, objv, "read <filename> ?-encoding <encoding>?");
     return TCL_ERROR;
+  }
+  Tcl_Encoding encoding = NULL;
+  if (objc == 5) {
+    if (strcmp(Tcl_GetString(objv[3]), "-encoding") != 0) {
+      Tcl_AppendResult(tclInterp, "invalid arg \"", Tcl_GetString(objv[3]), "\": should be \"-encoding\"", NULL);
+      return TCL_ERROR;
+    }
+    encoding = Tcl_GetEncoding(tclInterp, Tcl_GetString(objv[4]));
+    if (encoding == NULL) {
+      return TCL_ERROR;
+    }
   }
   int result = TCL_ERROR;
   Tcl_DString s;
@@ -72,14 +83,15 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
     xls_error_t error = LIBXLS_OK;
     xlsWorkBook * pWB = xls_open_file(filename, "UTF-8", &error);
     if (!pWB) {
-      Tcl_AppendResult(tclInterp, "Error reading ", filename, ": ", xls_getError(error), NULL);
+      Tcl_AppendResult(tclInterp, "error reading ", filename, ": ", xls_getError(error), NULL);
       goto exit;
     }
-    Tcl_Encoding encoding = NULL;
-    if ((pWB->codepage >= 874 /*437*/ && pWB->codepage <= 950) || (pWB->codepage >= 1250 && pWB->codepage <= 1258)) {
-      char s[7];
-      snprintf(s, sizeof(s), "cp%d", pWB->codepage);
-      encoding = Tcl_GetEncoding(NULL, s);
+    if (!encoding) {
+      if ((pWB->codepage >= 874 /*437*/ && pWB->codepage <= 950) || (pWB->codepage >= 1250 && pWB->codepage <= 1258)) {
+        char s[7];
+        snprintf(s, sizeof(s), "cp%d", pWB->codepage);
+        encoding = Tcl_GetEncoding(NULL, s);
+      }
     }
     Tcl_Obj * resultObj = Tcl_GetObjResult(tclInterp);
 
@@ -89,7 +101,7 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
       xlsWorkSheet * pWS = xls_getWorkSheet(pWB, sheet);
       error = xls_parseWorkSheet(pWS);
       if (error) {
-        Tcl_AppendResult(tclInterp, "Error parsing sheet ", pWB->sheets.sheet[sheet].name, ": ", xls_getError(error), NULL);
+        Tcl_AppendResult(tclInterp, "error parsing sheet ", pWB->sheets.sheet[sheet].name, ": ", xls_getError(error), NULL);
         xls_close_WS(pWS);
         goto exit;
       }
@@ -135,21 +147,21 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
       Tcl_ListObjAppendElement(tclInterp, resultObj, sheetObj);
     }
 
-    if (encoding)
-      Tcl_FreeEncoding(encoding);
     xls_close(pWB);
     result = TCL_OK;
 
   } else if (strcmp(Tcl_GetString(objv[1]), "open") == 0) {
-    Tcl_AppendResult(tclInterp, "Not implemented", NULL);
+    Tcl_AppendResult(tclInterp, "not implemented", NULL);
   } else {
-    Tcl_AppendResult(tclInterp, "Invalid subcommand ", Tcl_GetString(objv[1]), ", should be read or open", NULL);
+    Tcl_AppendResult(tclInterp, "invalid subcommand \"", Tcl_GetString(objv[1]), "\": should be read or open", NULL);
   }
 
 exit:
 #ifdef XLS_DEBUG
   xls::xls(0);
 #endif
+  if (encoding)
+    Tcl_FreeEncoding(encoding);
   Tcl_DStringFree(&e);
   Tcl_DStringFree(&s);
   return result;
