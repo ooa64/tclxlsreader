@@ -67,7 +67,15 @@ test read-2.2 "read ukrainian data, check encoding" tcltestEncodingOk {
 Чотири
 №ёЁъЪїЇіІєЄґҐ}
 
-test read-2.3 "read ukrainian filename" tcltestEncodingOk {
+test read-2.3 "read 8bit ukrainian data" tcltestEncodingOk {
+   readSheet ukrainian1251.xls 
+} {Один
+Два
+Три
+Чотири
+№ёЁъЪїЇіІєЄґҐ}
+
+test read-2.4 "read ukrainian filename" tcltestEncodingOk {
    readSheet Книга1.xls
 } {{}}
 

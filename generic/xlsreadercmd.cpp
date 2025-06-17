@@ -11,6 +11,41 @@ using namespace xls;
 #   define DEBUGLOG(_x_)
 #endif
 
+Tcl_Obj * Xls_NewNumberObj(xlsCell *cell) {
+  // (abs(cell->d - floor(cell->d)) <= DBL_MIN)
+  if (Tcl_WideInt(cell->d) == cell->d) 
+    return Tcl_NewWideIntObj(Tcl_DoubleAsWide(cell->d));
+  else 
+    return Tcl_NewDoubleObj(cell->d);
+  // {
+  // char s[22];
+  // snprintf(s, sizeof(s), "%.15g", cell->d);
+  // return Tcl_NewStringObj(s, -1);
+  // }
+}            
+
+Tcl_Obj * Xls_NewStringObj(xlsCell *cell, Tcl_Encoding encoding) {
+  if (!encoding)
+    return Tcl_NewStringObj((char *)cell->str, -1);
+  Tcl_DString e;
+  Tcl_DStringInit(&e);
+  Tcl_ExternalToUtfDString(encoding, (char *)cell->str, -1, &e);
+  Tcl_Obj * result = Tcl_NewStringObj(Tcl_DStringValue(&e), -1);
+  Tcl_DStringFree(&e);
+  return result;
+}
+
+Tcl_Obj * Xls_NewBoolerrObj(xlsCell *cell, Tcl_Encoding encoding) {
+    if (strcmp((char *)cell->str, "bool") == 0) {
+      return Tcl_NewBooleanObj((int)cell->d);
+      // return Tcl_NewStringObj(((int)cell->d ? "true" : "false"), -1);
+    } else if (strcmp((char *)cell->str, "error") == 0) {
+      return Tcl_NewStringObj("*error*", -1);
+    } else {
+      return Xls_NewStringObj(cell, encoding);
+    }
+}
+
 /*
   xlsreader read $xlsfile
     opens xls file, returns a list of lists (sheets/rows).
@@ -40,6 +75,12 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
       Tcl_AppendResult(tclInterp, "Error reading ", filename, ": ", xls_getError(error), NULL);
       goto exit;
     }
+    Tcl_Encoding encoding = NULL;
+    if ((pWB->codepage >= 874 /*437*/ && pWB->codepage <= 950) || (pWB->codepage >= 1250 && pWB->codepage <= 1258)) {
+      char s[7];
+      snprintf(s, sizeof(s), "cp%d", pWB->codepage);
+      encoding = Tcl_GetEncoding(NULL, s);
+    }
     Tcl_Obj * resultObj = Tcl_GetObjResult(tclInterp);
 
     for (unsigned sheet = 0; sheet < pWB->sheets.count; sheet++) {
@@ -63,41 +104,17 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
             continue;
           }
           if (cell->id == XLS_RECORD_RK || cell->id == XLS_RECORD_MULRK || cell->id == XLS_RECORD_NUMBER) {
-            // (abs(cell->d - floor(cell->d)) <= DBL_MIN)
-            if (Tcl_WideInt(cell->d) == cell->d)
-              Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewWideIntObj(Tcl_DoubleAsWide(cell->d)));
-            else 
-              Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewDoubleObj(cell->d));
+            Tcl_ListObjAppendElement(tclInterp, rowObj, Xls_NewNumberObj(cell));
           } else if (cell->id == XLS_RECORD_FORMULA || cell->id == XLS_RECORD_FORMULA_ALT) {
             if (cell->l == 0) {
-              if (Tcl_WideInt(cell->d) == cell->d)
-                Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewWideIntObj(Tcl_DoubleAsWide(cell->d)));
-              else 
-                Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewDoubleObj(cell->d));
-              // char s[22];
-              // snprintf(s, sizeof(s), "%.15g", cell->d);
-              // Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj(s, -1));
+              Tcl_ListObjAppendElement(tclInterp, rowObj, Xls_NewNumberObj(cell));
             } else if (cell->str) {
-              if (!strcmp((char *)cell->str, "bool")) {
-                Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewBooleanObj((int)cell->d));
-                // Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj(((int)cell->d ? "true" : "false"), -1));
-              } else if (!strcmp((char *)cell->str, "error")) {
-                Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj("*error*", -1));
-              } else {
-                Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj((char *)cell->str, -1));
-              }
+              Tcl_ListObjAppendElement(tclInterp, rowObj, Xls_NewBoolerrObj(cell, encoding));
             }
           } else if (cell->id == XLS_RECORD_BOOLERR) {
-              if (!strcmp((char *)cell->str, "bool")) {
-                Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewBooleanObj((int)cell->d));
-                // Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj(((int)cell->d ? "true" : "false"), -1));
-              } else if (!strcmp((char *)cell->str, "error")) {
-                Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj("*error*", -1));
-              } else {
-                Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj((char *)cell->str, -1));
-              }
+            Tcl_ListObjAppendElement(tclInterp, rowObj, Xls_NewBoolerrObj(cell, encoding));
           } else if (cell->str) {
-            Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj((char *)cell->str, -1));
+            Tcl_ListObjAppendElement(tclInterp, rowObj, Xls_NewStringObj(cell, encoding));
           } else {
             Tcl_ListObjAppendElement(tclInterp, rowObj, Tcl_NewStringObj("", -1));
           }
@@ -118,6 +135,8 @@ int XlsreaderCmd::Command (int objc, Tcl_Obj * const objv[]) {
       Tcl_ListObjAppendElement(tclInterp, resultObj, sheetObj);
     }
 
+    if (encoding)
+      Tcl_FreeEncoding(encoding);
     xls_close(pWB);
     result = TCL_OK;
 
