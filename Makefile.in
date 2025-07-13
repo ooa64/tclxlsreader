@@ -324,7 +324,7 @@ xlsreaderUuid.h:	$(srcdir)/manifest.uuid
 	echo "" >>$@
 
 $(srcdir)/doc/xlsreader.html: $(srcdir)/doc/xlsreader.md
-	@mkdoc $(srcdir)/doc/xlsreader.md $(srcdir)/doc/xlsreader.html
+	-@mkdoc $(srcdir)/doc/xlsreader.md $(srcdir)/doc/xlsreader.html
 
 #========================================================================
 # Distribution creation
